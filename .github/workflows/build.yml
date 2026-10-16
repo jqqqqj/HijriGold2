@@ -11,10 +11,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract project ZIP
+      - name: Extract project
         run: |
           mkdir project
           unzip -q HijriGold-OneFile-Build.zip -d project
+          echo "Extracted files:"
+          find project -maxdepth 3 -type f | head -100
+
+      - name: Locate Android project
+        run: |
+          if [ -f "project/settings.gradle" ]; then
+            echo "PROJECT_DIR=project" >> $GITHUB_ENV
+          elif [ -f "project/HijriGold/settings.gradle" ]; then
+            echo "PROJECT_DIR=project/HijriGold" >> $GITHUB_ENV
+          else
+            echo "Android project not found"
+            find project -name settings.gradle -o -name settings.gradle.kts
+            exit 1
+          fi
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -22,18 +36,15 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
-
       - name: Build APK
         run: |
-          cd project
-          gradle assembleDebug --no-daemon
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: HijriGold-APK
-          path: project/app/build/outputs/apk/debug/app-debug.apk
+          path: "**/app/build/outputs/apk/debug/app-debug.apk"
+          if-no-files-found: error
